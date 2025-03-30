@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama-data:/root/.ollama
+      - ./models:/models  # Montar modelos locales
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]  # Habilitar GPU si está disponible
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3001:8080"
+    volumes:
+      - open-webui-data:/app/backend/data
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: training
+    volumes:
+      - ./data:/data
+      - ./models:/models
+      - ./src:/src  # Montar scripts locales
+    environment:
+      - PYTHONUNBUFFERED=1
+      - HF_TOKEN=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  # Usar variable de entorno
+    working_dir: /data
+    restart: on-failure
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]  # Habilitar GPU para entrenamiento
+
+volumes:
+  ollama-data:
+  open-webui-data:
+
+# Configuración de redes para mejor comunicación entre contenedores
+networks:
+  default:
+    name: ollama-network
+    driver: bridge
