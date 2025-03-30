@@ -1,15 +1,25 @@
-FROM python:3.10
+FROM nvidia/cuda:12.1.1-base-ubuntu22.04
 
 # Instalar dependencias del sistema
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    python3.10 \
+    python3-pip \
+    python3.10-dev \
+    git \
+    curl \
+    docker.io \
+    && rm -rf /var/lib/apt/lists/*
 
-# Instalar dependencias de Python
-RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/nightly/cpu
-RUN pip install transformers==4.38.2 peft==0.9.0 datasets accelerate==0.27.2 sentencepiece protobuf
-RUN pip install -i https://pypi.org/simple/ bitsandbytes
+# Configurar Python 3.10 como predeterminado
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
 
-# Configurar el directorio de trabajo
+# Instalar dependencias de Python con soporte CUDA
+RUN pip3 install --upgrade pip && \
+    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    pip3 install transformers==4.38.2 peft==0.9.0 datasets accelerate==0.27.2 sentencepiece protobuf && \
+    pip3 install bitsandbytes>=0.41.1 scipy
+
 WORKDIR /data
 
-# Comando por defecto (mantiene el contenedor activo)
-CMD ["tail", "-f", "/dev/null"]
+CMD ["python3", "/data/scripts/train_lora.py"]
